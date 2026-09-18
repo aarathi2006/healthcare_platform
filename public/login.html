@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Healthcare Platform — Login</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; min-height: 100vh; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #e2e8f0; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .login-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 40px; max-width: 480px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+  .login-card h1 { margin: 0 0 8px; font-size: 24px; color: #f1f5f9; }
+  .login-card p.subtitle { margin: 0 0 28px; font-size: 14px; color: #94a3b8; }
+  .form-group { margin-bottom: 18px; }
+  .form-group label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; font-weight: 500; }
+  .form-group input { width: 100%; padding: 12px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f1f5f9; font-size: 14px; font-family: inherit; }
+  .form-group input:focus { outline: 2px solid #0ea5e9; border-color: transparent; }
+  button.login-btn { width: 100%; padding: 12px; background: #0ea5e9; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  button.login-btn:hover { background: #0284c7; }
+  button.login-btn:disabled { background: #475569; cursor: not-allowed; }
+  .error { background: #7f1d1d; color: #fca5a5; padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; display: none; }
+  .error.show { display: block; }
+  .quick-login { margin-top: 28px; padding-top: 20px; border-top: 1px solid #334155; }
+  .quick-login h3 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+  .quick-login-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .quick-btn { background: #0f172a; border: 1px solid #334155; color: #cbd5e1; padding: 10px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; text-align: left; font-family: inherit; }
+  .quick-btn:hover { border-color: #0ea5e9; color: white; }
+  .quick-btn strong { display: block; color: #f1f5f9; font-size: 13px; margin-bottom: 2px; }
+  .quick-btn span { color: #64748b; font-size: 11px; }
+</style>
+</head>
+<body>
+  <div class="login-card">
+    <h1>🏥 Healthcare Platform</h1>
+    <p class="subtitle">Sign in to continue</p>
+
+    <div class="error" id="error"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="email" value="patient@example.com" required />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" value="password123" required />
+      </div>
+      <button type="submit" class="login-btn" id="submit-btn">Sign In</button>
+    </form>
+
+    <div class="quick-login">
+      <h3>Quick Demo Login</h3>
+      <div class="quick-login-grid">
+        <button type="button" class="quick-btn" onclick="quickLogin('patient@example.com')">
+          <strong>👤 Patient</strong>
+          <span>patient@example.com</span>
+        </button>
+        <button type="button" class="quick-btn" onclick="quickLogin('doctor@example.com')">
+          <strong>👨‍⚕️ Doctor</strong>
+          <span>doctor@example.com</span>
+        </button>
+        <button type="button" class="quick-btn" onclick="quickLogin('hospital.admin@example.com')">
+          <strong>🏥 Hospital Admin</strong>
+          <span>hospital.admin@example.com</span>
+        </button>
+        <button type="button" class="quick-btn" onclick="quickLogin('platform.admin@example.com')">
+          <strong>🌐 Platform Admin</strong>
+          <span>platform.admin@example.com</span>
+        </button>
+      </div>
+      <p style="font-size: 11px; color: #64748b; margin: 12px 0 0;">All accounts use password: <code style="background:#0f172a;padding:2px 6px;border-radius:3px;">password123</code></p>
+    </div>
+  </div>
+
+<script>
+const API = window.location.origin === 'file://' ? 'http://localhost:3000' : window.location.origin;
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await doLogin(document.getElementById('email').value, document.getElementById('password').value);
+});
+
+async function quickLogin(email) {
+  document.getElementById('email').value = email;
+  document.getElementById('password').value = 'password123';
+  await doLogin(email, 'password123');
+}
+
+async function doLogin(email, password) {
+  const btn = document.getElementById('submit-btn');
+  const err = document.getElementById('error');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  err.classList.remove('show');
+
+  try {
+    const res = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.accessToken) {
+      err.textContent = data.message || 'Login failed';
+      err.classList.add('show');
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+      return;
+    }
+
+    sessionStorage.setItem('token', data.accessToken);
+    sessionStorage.setItem('user', JSON.stringify(data.user));
+
+    const role = data.user.role;
+    if (role === 'PATIENT') window.location.href = 'app.html#chat';
+    else if (role === 'DOCTOR') window.location.href = 'app.html#doctor';
+    else if (role === 'HOSPITAL_ADMIN') window.location.href = 'app.html#hospital';
+    else if (role === 'PLATFORM_ADMIN') window.location.href = 'app.html#platform';
+    else window.location.href = 'app.html';
+  } catch (e) {
+    err.textContent = 'Network error: ' + e.message;
+    err.classList.add('show');
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+}
+
+if (sessionStorage.getItem('token')) {
+  const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+  if (user.role === 'PATIENT') window.location.href = 'app.html#chat';
+  else if (user.role === 'DOCTOR') window.location.href = 'app.html#doctor';
+  else if (user.role === 'HOSPITAL_ADMIN') window.location.href = 'app.html#hospital';
+  else if (user.role === 'PLATFORM_ADMIN') window.location.href = 'app.html#platform';
+}
+</script>
+</body>
+</html>
+

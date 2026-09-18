@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Hospital Admin Dashboard</title>
+<script src="auth.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #f1f5f9; color: #0f172a; }
+  header { background: #7c3aed; color: white; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); gap: 20px; }
+  header h1 { margin: 0; font-size: 18px; font-weight: 600; white-space: nowrap; }
+  .hospital-picker { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 8px; }
+  .hospital-picker label { font-size: 12px; opacity: 0.9; }
+  .hospital-picker select { padding: 6px 10px; border-radius: 6px; border: none; font-size: 13px; font-weight: 500; background: white; color: #0f172a; min-width: 220px; cursor: pointer; }
+  .tabs { display: flex; gap: 4px; background: #6d28d9; padding: 8px 24px; overflow-x: auto; }
+  .tab { padding: 8px 16px; background: transparent; border: none; color: rgba(255,255,255,0.8); font-size: 14px; font-weight: 500; cursor: pointer; border-radius: 6px; white-space: nowrap; }
+  .tab:hover { background: rgba(255,255,255,0.1); color: white; }
+  .tab.active { background: white; color: #6d28d9; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: white; border-radius: 10px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  .card .label { font-size: 12px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .card .value { font-size: 26px; font-weight: 700; }
+  section { background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  section h2 { margin-top: 0; font-size: 15px; font-weight: 600; color: #334155; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+  th { background: #f8fafc; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .status-ok { background: #d1fae5; color: #065f46; }
+  .status-info { background: #dbeafe; color: #1e40af; }
+  .status-warn { background: #fef3c7; color: #78350f; }
+  .status-err { background: #fee2e2; color: #991b1b; }
+  .mono { font-family: "SF Mono", Monaco, monospace; font-size: 11px; color: #64748b; }
+  .empty { text-align: center; color: #94a3b8; padding: 24px; }
+  .questionnaire-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .questionnaire-box h3 { margin: 0 0 8px; font-size: 15px; }
+  .wh-day { display: inline-block; padding: 4px 10px; background: #f8fafc; border-radius: 4px; font-size: 12px; margin: 2px; }
+  .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: grid; grid-template-columns: 120px 1fr 60px; gap: 12px; align-items: center; font-size: 13px; }
+  .bar-row .bar-bg { background: #f1f5f9; height: 22px; border-radius: 4px; overflow: hidden; }
+  .bar-row .bar-fill { background: #7c3aed; height: 100%; }
+  .bar-row .num { text-align: right; font-weight: 600; color: #475569; }
+  .context-banner { background: #ede9fe; color: #5b21b6; padding: 8px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .context-banner strong { color: #4c1d95; }
+  button.action { background: #7c3aed; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  button.action:hover { background: #6d28d9; }
+  .profile-row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+  .profile-row .label { color: #64748b; font-weight: 500; }
+  .profile-row .value { color: #0f172a; font-weight: 500; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏥 Hospital Admin Dashboard</h1>
+  <div class="hospital-picker">
+    <label>Current Hospital:</label>
+    <select id="hospital-select"></select>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-tab="overview">🏠 Overview</button>
+  <button class="tab" data-tab="doctors">👨‍⚕️ Doctors</button>
+  <button class="tab" data-tab="appointments">📅 Appointments</button>
+  <button class="tab" data-tab="calendars">🗓️ Calendars</button>
+  <button class="tab" data-tab="questionnaires">📋 Questionnaires</button>
+  <button class="tab" data-tab="analytics">📊 Analytics</button>
+  <button class="tab" data-tab="activity">🔌 AI & Integration</button>
+  <button class="tab" data-tab="staff">👥 Staff</button>
+</div>
+
+<main>
+  <div class="context-banner" id="context-banner">
+    Viewing data for: <strong id="context-name">…</strong>
+    <span style="opacity: 0.7;">— all data below is scoped to this hospital only</span>
+  </div>
+
+  <div class="view active" id="view-overview">
+    <div class="cards">
+      <div class="card"><div class="label">Doctors</div><div class="value" id="ov-doctors">—</div></div>
+      <div class="card"><div class="label">Appointments</div><div class="value" id="ov-appts">—</div></div>
+      <div class="card"><div class="label">Questionnaires</div><div class="value" id="ov-quest">—</div></div>
+      <div class="card"><div class="label">Workflows</div><div class="value" id="ov-wf">—</div></div>
+      <div class="card"><div class="label">Integrations</div><div class="value" id="ov-int">—</div></div>
+    </div>
+    <section>
+      <h2>🏥 Hospital Info</h2>
+      <div id="hospital-info">Loading…</div>
+    </section>
+    <section>
+      <h2>📊 Appointments by Status</h2>
+      <div class="bar-chart" id="overview-appt-chart">Loading…</div>
+    </section>
+  </div>
+
+  <div class="view" id="view-doctors">
+    <section>
+      <h2>👨‍⚕️ Doctors at this Hospital</h2>
+      <table id="doctors-table">
+        <thead><tr><th>Name</th><th>Specialty</th><th>Department</th><th>Experience</th><th>Status</th><th>Calendar</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-appointments">
+    <section>
+      <h2>📅 Appointments</h2>
+      <table id="appts-table">
+        <thead><tr><th>When</th><th>Status</th><th>Type</th><th>Doctor</th><th>Patient</th><th>External ID</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-calendars">
+    <section>
+      <h2>🗓️ Doctor Calendars</h2>
+      <div id="calendars-list">Loading…</div>
+    </section>
+  </div>
+
+  <div class="view" id="view-questionnaires">
+    <section>
+      <h2>📋 Questionnaires</h2>
+      <div id="questionnaires-list">Loading…</div>
+    </section>
+  </div>
+
+  <div class="view" id="view-analytics">
+    <section>
+      <h2>📊 Analytics</h2>
+      <div id="analytics-content">Loading…</div>
+    </section>
+  </div>
+
+  <div class="view" id="view-activity">
+    <section>
+      <h2>🔌 AI Capability Activity</h2>
+      <table id="cap-table">
+        <thead><tr><th>Capability</th><th>Status</th><th>Duration (ms)</th><th>Correlation</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section>
+      <h2>🔗 Integration Operations</h2>
+      <table id="integration-table">
+        <thead><tr><th>Operation</th><th>Status</th><th>Error</th><th>Retry Count</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section>
+      <h2>⚙️ Workflows</h2>
+      <table id="workflows-table">
+        <thead><tr><th>Name</th><th>Status</th><th>Attempts</th><th>Correlation</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-staff">
+    <section>
+      <h2>👥 Staff & Access</h2>
+      <p style="font-size: 13px; color: #64748b;">All doctors are automatically linked to this hospital.</p>
+      <table id="staff-table">
+        <thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+</main>
+
+<script>
+let HOSPITAL_ID = null;
+let HOSPITALS = [];
+
+async function loadHospitals() {
+  try {
+    const res = await HealthAuth.fetch('/dashboard/hospital-applications');
+    HOSPITALS = await res.json();
+    const sel = document.getElementById('hospital-select');
+    sel.innerHTML = HOSPITALS.map(h =>
+      '<option value="' + h.id + '">' + h.name + '</option>'
+    ).join('');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlHospitalId = urlParams.get('hospitalId');
+    if (urlHospitalId && HOSPITALS.find(h => h.id === urlHospitalId)) {
+      HOSPITAL_ID = urlHospitalId;
+      sel.value = urlHospitalId;
+    } else {
+      HOSPITAL_ID = HOSPITALS[0] ? HOSPITALS[0].id : null;
+    }
+
+    sel.addEventListener('change', (e) => {
+      HOSPITAL_ID = e.target.value;
+      updateContextBanner();
+      reloadAll();
+      broadcastHospitalChange();
+    });
+
+    updateContextBanner();
+    setTimeout(broadcastHospitalChange, 300);
+  } catch (e) {
+    document.getElementById('context-name').textContent = 'Error loading hospitals';
+    console.error(e);
+  }
+}
+
+function broadcastHospitalChange() {
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'hospital-changed', hospitalId: HOSPITAL_ID }, '*');
+    }
+  } catch (err) { /* ignore */ }
+}
+
+function updateContextBanner() {
+  const h = HOSPITALS.find(x => x.id === HOSPITAL_ID);
+  document.getElementById('context-name').textContent = h ? h.name : '—';
+}
+
+function currentTab() {
+  const active = document.querySelector('.tab.active');
+  return active ? active.dataset.tab : 'overview';
+}
+
+function reloadAll() {
+  const t = currentTab();
+  if (t === 'overview') loadOverview();
+  if (t === 'doctors') loadDoctors();
+  if (t === 'appointments') loadAppointments();
+  if (t === 'calendars') loadCalendars();
+  if (t === 'questionnaires') loadQuestionnaires();
+  if (t === 'analytics') loadAnalytics();
+  if (t === 'activity') loadActivity();
+  if (t === 'staff') loadStaff();
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-' + tab.dataset.tab).classList.add('active');
+    reloadAll();
+  });
+});
+
+function statusClass(s) {
+  s = String(s || '').toUpperCase();
+  if (['CONFIRMED','COMPLETED','SENT','SUCCESS','APPROVED','ACTIVE'].includes(s)) return 'status-ok';
+  if (['PENDING','SYNC_PENDING','REQUESTED','RUNNING'].includes(s)) return 'status-info';
+  if (['CANCELLED','FAILED','RECONCILIATION_REQUIRED','REJECTED','SUSPENDED'].includes(s)) return 'status-err';
+  if (['INACTIVE'].includes(s)) return 'status-warn';
+  return 'status-warn';
+}
+function shortId(id) { return id ? id.slice(0, 8) + '…' : '—'; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+async function loadOverview() {
+  if (!HOSPITAL_ID) return;
+  try {
+    const res = await HealthAuth.fetch('/dashboard/hospitals/' + HOSPITAL_ID + '/overview');
+    const data = await res.json();
+    if (!data) return;
+
+    document.getElementById('ov-doctors').textContent = data.counts.doctors;
+    document.getElementById('ov-appts').textContent = data.counts.appointments;
+    document.getElementById('ov-quest').textContent = data.counts.questionnaires;
+    document.getElementById('ov-wf').textContent = data.counts.workflows;
+    document.getElementById('ov-int').textContent = data.counts.integrations;
+
+    document.getElementById('hospital-info').innerHTML =
+      '<div class="profile-row"><div class="label">Name</div><div class="value">' + esc(data.hospital.name) + '</div></div>' +
+      '<div class="profile-row"><div class="label">Address</div><div class="value">' + esc(data.hospital.address || '—') + '</div></div>' +
+      '<div class="profile-row"><div class="label">Phone</div><div class="value">' + esc(data.hospital.phone || '—') + '</div></div>' +
+      '<div class="profile-row"><div class="label">Email</div><div class="value">' + esc(data.hospital.email || '—') + '</div></div>' +
+      '<div class="profile-row"><div class="label">Status</div><div class="value"><span class="status ' + statusClass(data.hospital.status) + '">' + data.hospital.status + '</span></div></div>' +
+      '<div style="margin-top: 16px;">' +
+        '<button class="action" style="background:#0ea5e9;" onclick="viewPatients()">View This Hospital\'s Patients →</button>' +
+      '</div>';
+
+    const chartEl = document.getElementById('overview-appt-chart');
+    const entries = Object.entries(data.appointmentsByStatus || {});
+    if (entries.length === 0) {
+      chartEl.innerHTML = '<div class="empty">No appointments yet</div>';
+    } else {
+      const max = Math.max.apply(null, entries.map(e => e[1]).concat([1]));
+      chartEl.innerHTML = entries.map(([k, v]) =>
+        '<div class="bar-row">' +
+          '<div>' + k + '</div>' +
+          '<div class="bar-bg"><div class="bar-fill" style="width: ' + ((v/max)*100) + '%;"></div></div>' +
+          '<div class="num">' + v + '</div>' +
+        '</div>'
+      ).join('');
+    }
+  } catch (e) {
+    document.getElementById('hospital-info').innerHTML = '<div class="empty">Error: ' + e.message + '</div>';
+  }
+}
+
+async function loadDoctors() {
+  if (!HOSPITAL_ID) return;
+  const res = await HealthAuth.fetch('/dashboard/hospitals/' + HOSPITAL_ID + '/doctors');
+  const doctors = await res.json();
+  const tbody = document.querySelector('#doctors-table tbody');
+  if (!doctors.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No doctors at this hospital</td></tr>';
+    return;
+  }
+  tbody.innerHTML = doctors.map(d =>
+    '<tr>' +
+      '<td><strong>' + esc(d.name) + '</strong></td>' +
+      '<td>' + esc(d.specialtyName || '—') + '</td>' +
+      '<td>' + esc(d.departmentName || '—') + '</td>' +
+      '<td>' + (d.experienceYears || 0) + ' yrs</td>' +
+      '<td><span class="status ' + statusClass(d.status) + '">' + d.status + '</span></td>' +
+      '<td>' + (d.hasActiveCalendar ? '<span class="status status-ok">Active</span>' : '<span class="status status-warn">None</span>') + '</td>' +
+    '</tr>'
+  ).join('');
+}
+
+async function loadAppointments() {
+  if (!HOSPITAL_ID) return;
+  const res = await HealthAuth.fetch('/dashboard/hospitals/' + HOSPITAL_ID + '/appointments');
+  const appts = await res.json();
+  const tbody = document.querySelector('#appts-table tbody');
+  if (!appts.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No appointments at this hospital</td></tr>';
+    return;
+  }
+  tbody.innerHTML = appts.map(a =>
+    '<tr>' +
+      '<td>' + new Date(a.startDatetime).toLocaleString() + '</td>' +
+      '<td><span class="status ' + statusClass(a.status) + '">' + a.status + '</span></td>' +
+      '<td>' + esc(a.appointmentType) + '</td>' +
+      '<td class="mono">' + shortId(a.doctorId) + '</td>' +
+      '<td class="mono">' + shortId(a.patientId) + '</td>' +
+      '<td class="mono">' + shortId(a.externalAppointmentId) + '</td>' +
+    '</tr>'
+  ).join('');
+}
+
+async function loadCalendars() {
+  if (!HOSPITAL_ID) return;
+  const res = await HealthAuth.fetch('/dashboard/hospitals/' + HOSPITAL_ID + '/calendars');
+  const calendars = await res.json();
+  const el = document.getElementById('calendars-list');
+  if (!calendars.length) {
+    el.innerHTML = '<div class="empty">No calendars at this hospital</div>';
+    return;
+  }
+  el.innerHTML = calendars.map(c => {
+    const whByDay = {};
+    (c.workingHours || []).forEach(w => {
+      whByDay[w.dayOfWeek] = whByDay[w.dayOfWeek] || [];
+      whByDay[w.dayOfWeek].push(w.startTime.slice(0,5) + '–' + w.endTime.slice(0,5));
+    });
+    const DAY = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const whHtml = [0,1,2,3,4,5,6].map(d =>
+      '<span class="wh-day"><strong>' + DAY[d] + '</strong>: ' + (whByDay[d] ? whByDay[d].join(', ') : 'Closed') + '</span>'
+    ).join('');
+    const blocked = c.blockedSlots || [];
+
+    return '<div class="questionnaire-box">' +
+      '<h3>' + esc(c.doctor ? c.doctor.name : 'Unknown doctor') + '</h3>' +
+      '<div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">' +
+        'Timezone: ' + esc(c.calendar.timezone) +
+        ' · Active: <span class="status ' + (c.calendar.isActive ? 'status-ok' : 'status-warn') + '">' + c.calendar.isActive + '</span>' +
+      '</div>' +
+      '<div style="margin-bottom: 12px;">' + whHtml + '</div>' +
+      '<div style="font-size: 12px; color: #64748b;">Blocked slots: ' + blocked.length + '</div>' +
+      (blocked.length ? '<ul style="font-size: 12px; color: #475569; margin: 8px 0 0; padding-left: 20px;">' +
+        blocked.map(b => '<li>' + new Date(b.startDatetime).toLocaleString() + ' – ' + new Date(b.endDatetime).toLocaleString() + (b.reason ? ' (' + esc(b.reason) + ')' : '') + '</li>').join('') +
+        '</ul>' : '') +
+      '</div>';
+  }).join('');
+}
+
+async function loadQuestionnaires() {
+  if (!HOSPITAL_ID) return;
+  const el = document.getElementById('questionnaires-list');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+
+  try {
+    const [templatesRes, responsesRes] = await Promise.all([
+      HealthAuth.fetch('/dashboard/hospitals/' + HOSPITAL_ID + '/questionnaires'),
+      HealthAuth.fetch('/dashboard/hospitals/' + HOSPITAL_ID + '/questionnaire-responses'),
+    ]);
+    const templates = await templatesRes.json();
+    const responses = await responsesRes.json();
+
+    let html = '';
+
+    if (templates.length > 0) {
+      html += '<h3 style="margin-bottom: 12px; font-size: 14px; color: #7c3aed;">📋 Questionnaire Templates</h3>';
+      html += templates.map(q =>
+        '<div class="questionnaire-box" style="border-color: #c4b5fd;">' +
+          '<h3>' + esc(q.name) + '</h3>' +
+          '<div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">' +
+            'Assigned to: ' + esc(q.assignedTo || 'all') + ' · ' + (q.questions || []).length + ' questions' +
+          '</div>' +
+          '<div style="font-size: 13px; color: #475569;">' +
+            (q.questions || []).map((qu, i) => (i+1) + '. ' + esc(qu.question) + ' <em style="color:#94a3b8;">(' + qu.type + ')</em>').join('<br/>') +
+          '</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    html += '<h3 style="margin: 24px 0 12px; font-size: 14px; color: #7c3aed;">📝 Patient Responses</h3>';
+
+    if (responses.length === 0) {
+      html += '<div class="empty">No patient responses yet for this hospital</div>';
+    } else {
+      html += responses.map(r => {
+        const questions = (r.questionnaire && r.questionnaire.questions) || [];
+        const answers = (r.response && r.response.responses) || {};
+        const patientName = r.patient ? r.patient.name : 'Unknown';
+        const doctorName = r.doctor ? r.doctor.name : '—';
+        const status = r.response ? r.response.status : 'UNKNOWN';
+        const apptTime = r.appointment ? new Date(r.appointment.startDatetime).toLocaleString() : '—';
+
+        const answerRows = questions.map(qu => {
+          const ans = answers[qu.id];
+          const hasAns = ans !== undefined && ans !== null && ans !== '';
+          const answerText = hasAns ? esc(String(ans)) : '<em style="color:#94a3b8;">not answered</em>';
+          return '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px;">' +
+            '<div style="color:#475569;">' + esc(qu.question) + '</div>' +
+            '<div style="color:#0f172a; font-weight: 500;">' + answerText + '</div>' +
+            '</div>';
+        }).join('');
+
+        return '<div class="questionnaire-box">' +
+          '<h3>' + esc(r.questionnaire ? r.questionnaire.name : 'Questionnaire') + '</h3>' +
+          '<div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">' +
+            'Patient: <strong>' + esc(patientName) + '</strong> · ' +
+            'Doctor: <strong>' + esc(doctorName) + '</strong> · ' +
+            'Appointment: ' + apptTime + ' · ' +
+            'Status: <span class="status ' + statusClass(status) + '">' + status + '</span>' +
+          '</div>' +
+          answerRows +
+          '</div>';
+      }).join('');
+    }
+
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<div class="empty">Error loading: ' + e.message + '</div>';
+  }
+}
+
+async function loadAnalytics() {
+  if (!HOSPITAL_ID) return;
+  const res = await HealthAuth.fetch('/dashboard/hospitals/' + HOSPITAL_ID + '/overview');
+  const data = await res.json();
+  const el = document.getElementById('analytics-content');
+
+  function barChart(title, obj) {
+    const entries = Object.entries(obj || {});
+    if (!entries.length) {
+      return '<h3 style="font-size:14px;margin:16px 0 8px;">' + title + '</h3><div class="empty">No data</div>';
+    }
+    const max = Math.max.apply(null, entries.map(e => e[1]).concat([1]));
+    return '<h3 style="font-size:14px;margin:16px 0 8px;">' + title + '</h3>' +
+      '<div class="bar-chart">' +
+      entries.map(([k, v]) =>
+        '<div class="bar-row">' +
+          '<div>' + k + '</div>' +
+          '<div class="bar-bg"><div class="bar-fill" style="width: ' + ((v/max)*100) + '%;"></div></div>' +
+          '<div class="num">' + v + '</div>' +
+        '</div>'
+      ).join('') + '</div>';
+  }
+
+  el.innerHTML =
+    '<div style="font-size: 13px; color: #64748b; margin-bottom: 16px;">Scope: <strong>' + esc(data.hospital.name) + '</strong></div>' +
+    barChart('Appointments by status', data.appointmentsByStatus) +
+    '<h3 style="font-size:14px;margin:16px 0 8px;">Entity counts</h3>' +
+    barChart('', {
+      'Doctors': data.counts.doctors,
+      'Appointments': data.counts.appointments,
+      'Questionnaires': data.counts.questionnaires,
+      'Workflows': data.counts.workflows,
+      'Integrations': data.counts.integrations,
+    });
+}
+
+async function loadActivity() {
+  if (!HOSPITAL_ID) return;
+  const [capsRes, intsRes, wfsRes] = await Promise.all([
+    HealthAuth.fetch('/dashboard/capability-executions?limit=50'),
+    HealthAuth.fetch('/dashboard/integration-operations?limit=50'),
+    HealthAuth.fetch('/dashboard/workflows?limit=50'),
+  ]);
+  const caps = await capsRes.json();
+  const ints = await intsRes.json();
+  const wfs = await wfsRes.json();
+
+  const capTbody = document.querySelector('#cap-table tbody');
+  capTbody.innerHTML = caps.length === 0
+    ? '<tr><td colspan="4" class="empty">No AI activity</td></tr>'
+    : caps.map(c =>
+        '<tr>' +
+          '<td>' + esc(c.capabilityName) + '</td>' +
+          '<td><span class="status ' + statusClass(c.status) + '">' + c.status + '</span></td>' +
+          '<td>' + (c.durationMs || 0) + '</td>' +
+          '<td class="mono">' + shortId(c.correlationId) + '</td>' +
+        '</tr>'
+      ).join('');
+
+  const intTbody = document.querySelector('#integration-table tbody');
+  intTbody.innerHTML = ints.length === 0
+    ? '<tr><td colspan="4" class="empty">No integration operations</td></tr>'
+    : ints.map(i =>
+        '<tr>' +
+          '<td>' + esc(i.operationType) + '</td>' +
+          '<td><span class="status ' + statusClass(i.status) + '">' + i.status + '</span></td>' +
+          '<td class="mono">' + esc(i.errorMessage || '—') + '</td>' +
+          '<td>' + (i.retryCount || 0) + '</td>' +
+        '</tr>'
+      ).join('');
+
+  const wfTbody = document.querySelector('#workflows-table tbody');
+  wfTbody.innerHTML = wfs.length === 0
+    ? '<tr><td colspan="4" class="empty">No workflows</td></tr>'
+    : wfs.map(w =>
+        '<tr>' +
+          '<td>' + esc(w.workflowName) + '</td>' +
+          '<td><span class="status ' + statusClass(w.status) + '">' + w.status + '</span></td>' +
+          '<td>' + w.attempts + '</td>' +
+          '<td class="mono">' + shortId(w.correlationId) + '</td>' +
+        '</tr>'
+      ).join('');
+}
+
+async function loadStaff() {
+  if (!HOSPITAL_ID) return;
+  const res = await HealthAuth.fetch('/dashboard/hospitals/' + HOSPITAL_ID + '/doctors');
+  const doctors = await res.json();
+  const tbody = document.querySelector('#staff-table tbody');
+  if (!doctors.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">No staff at this hospital</td></tr>';
+    return;
+  }
+  tbody.innerHTML = doctors.map(d =>
+    '<tr>' +
+      '<td><strong>' + esc(d.name) + '</strong></td>' +
+      '<td>Doctor</td>' +
+      '<td>—</td>' +
+      '<td><span class="status ' + statusClass(d.status) + '">' + d.status + '</span></td>' +
+    '</tr>'
+  ).join('');
+}
+
+window.viewPatients = () => {
+  window.open('patient-dashboard.html?hospitalId=' + HOSPITAL_ID, '_blank');
+};
+
+(async function init() {
+  if (!HealthAuth.isLoggedIn()) {
+    window.location.href = 'login.html';
+    return;
+  }
+  await loadHospitals();
+  loadOverview();
+})();
+</script>
+</body>
+</html>
+

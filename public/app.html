@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Healthcare Platform — Unified Demo</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #e2e8f0; display: flex; flex-direction: column; }
+
+  .topbar { background: #1e293b; border-bottom: 1px solid #334155; padding: 0 20px; display: flex; align-items: center; height: 56px; gap: 20px; }
+  .topbar .brand { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+  .topbar .brand span.dot { color: #0ea5e9; }
+  .topbar .badge { background: #064e3b; color: #6ee7b7; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-left: 10px; }
+  .topbar .user-tag { font-size: 12px; color: #94a3b8; margin-left: 12px; }
+  .tabs { display: flex; gap: 4px; margin-left: auto; }
+  .tab { padding: 8px 14px; background: transparent; border: none; color: #94a3b8; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 6px; white-space: nowrap; }
+  .tab:hover { color: #e2e8f0; background: #334155; }
+  .tab.active { color: white; background: #0ea5e9; }
+  .logout-btn { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; margin-left: 12px; font-family: inherit; }
+  .logout-btn:hover { background: rgba(239, 68, 68, 0.35); }
+
+  .subtitle { background: #0f172a; border-bottom: 1px solid #1e293b; padding: 8px 24px; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 8px; min-height: 36px; }
+  .subtitle strong { color: #94a3b8; }
+  .subtitle code { background: #1e293b; padding: 2px 6px; border-radius: 3px; color: #93c5fd; font-family: monospace; }
+
+  .viewport { flex: 1; position: relative; }
+  .viewport iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; display: none; }
+  .viewport iframe.active { display: block; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">🏥 Healthcare Platform<span class="dot">.</span><span class="badge">● Live</span></div>
+    <span class="user-tag" id="user-tag"></span>
+    <div class="tabs">
+      <button class="tab active" data-view="chat">💬 Chat</button>
+      <button class="tab" data-view="patient">👤 Patient</button>
+      <button class="tab" data-view="doctor">👨‍⚕️ Doctor</button>
+      <button class="tab" data-view="hospital">🏥 Hospital Admin</button>
+      <button class="tab" data-view="platform">🌐 Platform Admin</button>
+    </div>
+    <button class="logout-btn" onclick="HealthAuth.logout()">Logout</button>
+  </div>
+
+  <div class="subtitle" id="subtitle"></div>
+
+  <div class="viewport">
+    <iframe id="iframe-chat" class="active" src="patient-chat.html"></iframe>
+    <iframe id="iframe-patient" src="patient-dashboard.html"></iframe>
+    <iframe id="iframe-doctor" src="doctor-dashboard.html"></iframe>
+    <iframe id="iframe-hospital" src="hospital-admin.html"></iframe>
+    <iframe id="iframe-platform" src="platform-admin.html"></iframe>
+  </div>
+
+<script>
+(function () {
+  if (!sessionStorage.getItem('token')) {
+    window.location.href = 'login.html';
+    return;
+  }
+
+  var currentUser = null;
+  try {
+    currentUser = JSON.parse(sessionStorage.getItem('user') || 'null');
+  } catch (e) {
+    currentUser = null;
+  }
+
+  if (currentUser) {
+    var userTagEl = document.getElementById('user-tag');
+    if (userTagEl) {
+      userTagEl.textContent = currentUser.email + ' (' + currentUser.role + ')';
+    }
+  }
+
+  var subtitleText = {
+    chat: '<strong>Patient AI Chat</strong> <span>— Type: <code>I have shoulder pain</code></span>',
+    patient: '<strong>Patient Dashboard</strong> <span>— Home, appointments, questionnaires, profile.</span>',
+    doctor: '<strong>Doctor Dashboard</strong> <span>— Today schedule, calendar, availability, questionnaire responses.</span>',
+    hospital: '<strong>Hospital Admin Dashboard</strong> <span>— Scoped by hospital.</span>',
+    platform: '<strong>Platform Admin Dashboard</strong> <span>— Cross-hospital view.</span>'
+  };
+
+  var currentHospitalId = null;
+
+  function activate(view) {
+    var tabs = document.querySelectorAll('.tab');
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].classList.remove('active');
+    }
+    var targetTab = document.querySelector('[data-view="' + view + '"]');
+    if (targetTab) targetTab.classList.add('active');
+
+    var frames = document.querySelectorAll('.viewport iframe');
+    for (var j = 0; j < frames.length; j++) {
+      frames[j].classList.remove('active');
+    }
+    var targetIframe = document.getElementById('iframe-' + view);
+    if (targetIframe) targetIframe.classList.add('active');
+
+    var subtitleEl = document.getElementById('subtitle');
+    if (subtitleEl) subtitleEl.innerHTML = subtitleText[view] || '';
+
+    window.location.hash = view;
+
+    if (view === 'patient' && currentHospitalId && targetIframe) {
+      targetIframe.src = 'patient-dashboard.html?hospitalId=' + currentHospitalId;
+    }
+  }
+
+  var tabButtons = document.querySelectorAll('.tab');
+  for (var k = 0; k < tabButtons.length; k++) {
+    (function (btn) {
+      btn.addEventListener('click', function () {
+        activate(btn.dataset.view);
+      });
+    })(tabButtons[k]);
+  }
+
+  window.addEventListener('message', function (event) {
+    if (!event.data) return;
+
+    if (event.data.type === 'hospital-changed' && event.data.hospitalId) {
+      currentHospitalId = event.data.hospitalId;
+      var patientIframe = document.getElementById('iframe-patient');
+      if (patientIframe && patientIframe.classList.contains('active')) {
+        patientIframe.src = 'patient-dashboard.html?hospitalId=' + currentHospitalId;
+      }
+    }
+
+
+  });
+
+  var initialHash = window.location.hash.replace('#', '');
+  var validViews = ['chat', 'patient', 'doctor', 'hospital', 'platform'];
+  var found = false;
+  for (var m = 0; m < validViews.length; m++) {
+    if (validViews[m] === initialHash) {
+      found = true;
+      break;
+    }
+  }
+
+  if (found) {
+    activate(initialHash);
+  } else {
+    activate('chat');
+  }
+})();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Platform Admin Dashboard</title>
+<script src="auth.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+  header { background: #1e293b; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+  header h1 { margin: 0; font-size: 18px; font-weight: 600; color: #f1f5f9; }
+  header .who { font-size: 12px; color: #94a3b8; }
+  .badge { background: #064e3b; color: #6ee7b7; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .tabs { display: flex; gap: 4px; background: #0f172a; padding: 8px 24px; border-bottom: 1px solid #334155; overflow-x: auto; }
+  .tab { padding: 8px 16px; background: transparent; border: none; color: #94a3b8; font-size: 14px; font-weight: 500; cursor: pointer; border-radius: 6px; white-space: nowrap; }
+  .tab:hover { background: #1e293b; color: #e2e8f0; }
+  .tab.active { background: #0ea5e9; color: white; }
+  main { max-width: 1300px; margin: 0 auto; padding: 24px; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; }
+  .card .label { font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .card .value { font-size: 24px; font-weight: 700; color: #f1f5f9; }
+  section { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  section h2 { margin-top: 0; font-size: 15px; font-weight: 600; color: #cbd5e1; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #334155; }
+  th { background: #0f172a; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { color: #cbd5e1; }
+  tr:hover td { background: #334155; }
+  .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .status-ok { background: #064e3b; color: #6ee7b7; }
+  .status-warn { background: #78350f; color: #fcd34d; }
+  .status-err { background: #7f1d1d; color: #fca5a5; }
+  .status-info { background: #1e3a8a; color: #93c5fd; }
+  .mono { font-family: "SF Mono", Monaco, monospace; font-size: 11px; color: #94a3b8; }
+  .empty { text-align: center; color: #64748b; padding: 24px; }
+  button.action { background: #0ea5e9; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; margin-right: 4px; }
+  button.action:hover { background: #0284c7; }
+  button.action.ok { background: #10b981; }
+  button.action.ok:hover { background: #059669; }
+  button.action.err { background: #ef4444; }
+  button.action.err:hover { background: #dc2626; }
+  .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: grid; grid-template-columns: 180px 1fr 60px; gap: 12px; align-items: center; font-size: 13px; }
+  .bar-row .bar-bg { background: #0f172a; height: 22px; border-radius: 4px; overflow: hidden; }
+  .bar-row .bar-fill { background: #0ea5e9; height: 100%; }
+  .bar-row .num { text-align: right; font-weight: 600; color: #cbd5e1; }
+  .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .health-card { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 14px; }
+  .health-card .title { font-size: 12px; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .health-card .value { font-size: 20px; font-weight: 700; }
+  .health-card .value.ok { color: #6ee7b7; }
+  .health-card .value.warn { color: #fcd34d; }
+  .health-card .value.err { color: #fca5a5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌐 Platform Admin Dashboard</h1>
+  <div>
+    <span class="badge" id="status-badge">Loading…</span>
+    <span class="who" id="who">—</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-tab="overview">🏠 Overview</button>
+  <button class="tab" data-tab="applications">📝 Hospital Applications</button>
+  <button class="tab" data-tab="hospitals">🏥 Hospitals</button>
+  <button class="tab" data-tab="activity">🤖 AI Activity</button>
+  <button class="tab" data-tab="integrations">🔗 Integration</button>
+  <button class="tab" data-tab="workflows">⚙️ Workflows</button>
+  <button class="tab" data-tab="analytics">📊 Analytics</button>
+  <button class="tab" data-tab="evaluation">🎯 AI Evaluation</button>
+  <button class="tab" data-tab="health">💚 Operational Health</button>
+  <button class="tab" data-tab="audit">📜 Audit Log</button>
+</div>
+
+<main>
+  <div class="view active" id="view-overview">
+    <div class="cards" id="overview-cards"></div>
+    <section>
+      <h2>📋 Recent Appointments (All Hospitals)</h2>
+      <table id="overview-appts">
+        <thead><tr><th>When</th><th>Status</th><th>Hospital</th><th>Doctor</th><th>Correlation</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-applications">
+    <section>
+      <h2>📝 Hospital Applications</h2>
+      <p style="font-size: 13px; color: #94a3b8; margin-top: -8px;">Hospitals that applied to join the platform.</p>
+      <table id="applications-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Applied</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-hospitals">
+    <section>
+      <h2>🏥 All Hospitals</h2>
+      <p style="font-size: 13px; color: #94a3b8; margin-top: -8px;">Click "View Admin" to open that hospital's dashboard.</p>
+      <table id="hospitals-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Registered</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-activity">
+    <section>
+      <h2>🤖 AI Capability Executions</h2>
+      <table id="cap-table">
+        <thead><tr><th>Capability</th><th>Status</th><th>Duration (ms)</th><th>Correlation</th><th>When</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section>
+      <h2>💬 Recent Conversations</h2>
+      <table id="convs-table">
+        <thead><tr><th>Patient</th><th>Channel</th><th>Status</th><th>Created</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-integrations">
+    <section>
+      <h2>🔗 Integration Operations (EHR)</h2>
+      <table id="integration-table">
+        <thead><tr><th>Operation</th><th>Status</th><th>Error</th><th>Retries</th><th>Created</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section>
+      <h2>🚨 Reconciliation Records</h2>
+      <table id="reconcile-table">
+        <thead><tr><th>Status</th><th>Reason</th><th>Appointment</th><th>Created</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-workflows">
+    <section>
+      <h2>⚙️ Workflow Executions</h2>
+      <table id="workflows-table">
+        <thead><tr><th>Name</th><th>Status</th><th>Attempts</th><th>Correlation</th><th>Created</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section>
+      <h2>📨 Notifications</h2>
+      <table id="notifs-table">
+        <thead><tr><th>Recipient</th><th>Channel</th><th>Title</th><th>Status</th><th>Sent</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-analytics">
+    <section>
+      <h2>📊 Platform Analytics</h2>
+      <div id="analytics-content">Loading…</div>
+    </section>
+  </div>
+
+  <div class="view" id="view-evaluation">
+    <section>
+      <h2>🎯 AI Evaluation</h2>
+      <p style="font-size: 13px; color: #94a3b8; margin-top: -8px;">Automated checks against recorded capability executions.</p>
+      <div id="eval-content">Loading…</div>
+    </section>
+  </div>
+
+  <div class="view" id="view-health">
+    <section>
+      <h2>💚 Operational Health</h2>
+      <div class="health-grid" id="health-grid">Loading…</div>
+    </section>
+  </div>
+
+  <div class="view" id="view-audit">
+    <section>
+      <h2>📜 Audit Events</h2>
+      <table id="audit-table">
+        <thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Entity</th><th>Correlation</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+</main>
+
+<script>
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-' + tab.dataset.tab).classList.add('active');
+    const t = tab.dataset.tab;
+    if (t === 'applications') loadApplications();
+    if (t === 'hospitals') loadHospitals();
+    if (t === 'activity') loadActivity();
+    if (t === 'integrations') loadIntegrations();
+    if (t === 'workflows') loadWorkflows();
+    if (t === 'analytics') loadAnalytics();
+    if (t === 'evaluation') loadEvaluation();
+    if (t === 'health') loadHealth();
+    if (t === 'audit') loadAudit();
+  });
+});
+
+function statusClass(s) {
+  s = String(s || '').toUpperCase();
+  if (['CONFIRMED','COMPLETED','SENT','SUCCESS','APPROVED','ACTIVE','VERIFIED','RECONCILED'].includes(s)) return 'status-ok';
+  if (['PENDING','SYNC_PENDING','REQUESTED','RUNNING','QUEUED','DRAFT','SUBMITTED','UNDER_REVIEW'].includes(s)) return 'status-info';
+  if (['CANCELLED','FAILED','RECONCILIATION_REQUIRED','REJECTED','SUSPENDED'].includes(s)) return 'status-err';
+  return 'status-warn';
+}
+function shortId(id) { return id ? id.slice(0, 8) + '…' : '—'; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+async function loadOverview() {
+  try {
+    const res = await HealthAuth.fetch('/dashboard/overview');
+    const d = await res.json();
+    document.getElementById('status-badge').textContent = '● Live';
+    document.getElementById('who').textContent = 'Platform Admin';
+
+    const map = {
+      'Hospitals': d.hospitals,
+      'Doctors': d.doctors,
+      'Patients': d.patients,
+      'Appointments': d.appointments,
+      'AI Calls': d.capabilityExecutions,
+      'Conversations': d.conversations,
+      'Integrations': d.integrationOperations,
+      'Reconciliations': d.reconciliationRecords,
+      'Workflows': d.workflows,
+      'Notifications': d.notifications,
+      'Audit Events': d.auditEvents,
+    };
+    document.getElementById('overview-cards').innerHTML = Object.entries(map).map(([k, v]) =>
+      '<div class="card"><div class="label">' + k + '</div><div class="value">' + v + '</div></div>'
+    ).join('');
+
+    const apptsRes = await HealthAuth.fetch('/dashboard/appointments?limit=10');
+    const appts = await apptsRes.json();
+    const tbody = document.querySelector('#overview-appts tbody');
+    tbody.innerHTML = appts.length === 0
+      ? '<tr><td colspan="5" class="empty">No appointments</td></tr>'
+      : appts.map(a =>
+          '<tr>' +
+            '<td>' + new Date(a.startDatetime).toLocaleString() + '</td>' +
+            '<td><span class="status ' + statusClass(a.status) + '">' + a.status + '</span></td>' +
+            '<td class="mono">' + shortId(a.hospitalId) + '</td>' +
+            '<td class="mono">' + shortId(a.doctorId) + '</td>' +
+            '<td class="mono">' + shortId(a.correlationId) + '</td>' +
+          '</tr>'
+        ).join('');
+  } catch (e) {
+    document.getElementById('status-badge').textContent = '● Offline';
+    console.error(e);
+  }
+}
+
+async function loadApplications() {
+  const res = await HealthAuth.fetch('/dashboard/hospital-applications');
+  const apps = await res.json();
+  const tbody = document.querySelector('#applications-table tbody');
+  if (!apps.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No applications</td></tr>';
+    return;
+  }
+  tbody.innerHTML = apps.map(a =>
+    '<tr>' +
+      '<td><strong>' + esc(a.name) + '</strong></td>' +
+      '<td>' + esc(a.email || '—') + '</td>' +
+      '<td>' + esc(a.phone || '—') + '</td>' +
+      '<td><span class="status ' + statusClass(a.status) + '">' + a.status + '</span></td>' +
+      '<td>' + new Date(a.createdAt).toLocaleDateString() + '</td>' +
+      '<td>' +
+        '<button class="action ok" onclick="alert(\'Approve: not yet wired in prototype\')">Approve</button>' +
+        '<button class="action err" onclick="alert(\'Reject: not yet wired in prototype\')">Reject</button>' +
+      '</td>' +
+    '</tr>'
+  ).join('');
+}
+
+async function loadHospitals() {
+  const res = await HealthAuth.fetch('/dashboard/hospital-applications');
+  const apps = await res.json();
+  const tbody = document.querySelector('#hospitals-table tbody');
+  if (!apps.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">No hospitals</td></tr>';
+    return;
+  }
+  tbody.innerHTML = apps.map(h =>
+    '<tr>' +
+      '<td><strong>' + esc(h.name) + '</strong></td>' +
+      '<td>' + esc(h.email || '—') + '</td>' +
+      '<td><span class="status ' + statusClass(h.status) + '">' + h.status + '</span></td>' +
+      '<td>' + new Date(h.createdAt).toLocaleDateString() + '</td>' +
+      '<td><button class="action" onclick="window.open(\'hospital-admin.html\', \'_blank\')">View Admin</button></td>' +
+    '</tr>'
+  ).join('');
+}
+
+async function loadActivity() {
+  const [capsRes, convsRes] = await Promise.all([
+    HealthAuth.fetch('/dashboard/capability-executions?limit=50'),
+    HealthAuth.fetch('/dashboard/conversations?limit=20'),
+  ]);
+  const caps = await capsRes.json();
+  const convs = await convsRes.json();
+
+  const capTbody = document.querySelector('#cap-table tbody');
+  capTbody.innerHTML = caps.length === 0
+    ? '<tr><td colspan="5" class="empty">No AI activity</td></tr>'
+    : caps.map(c =>
+        '<tr>' +
+          '<td>' + esc(c.capabilityName) + '</td>' +
+          '<td><span class="status ' + statusClass(c.status) + '">' + c.status + '</span></td>' +
+          '<td>' + (c.durationMs || 0) + '</td>' +
+          '<td class="mono">' + shortId(c.correlationId) + '</td>' +
+          '<td>' + new Date(c.createdAt).toLocaleString() + '</td>' +
+        '</tr>'
+      ).join('');
+
+  const convTbody = document.querySelector('#convs-table tbody');
+  convTbody.innerHTML = convs.length === 0
+    ? '<tr><td colspan="4" class="empty">No conversations</td></tr>'
+    : convs.map(c =>
+        '<tr>' +
+          '<td class="mono">' + shortId(c.patientId) + '</td>' +
+          '<td>' + esc(c.channel) + '</td>' +
+          '<td><span class="status ' + statusClass(c.status) + '">' + c.status + '</span></td>' +
+          '<td>' + new Date(c.createdAt).toLocaleString() + '</td>' +
+        '</tr>'
+      ).join('');
+}
+
+async function loadIntegrations() {
+  const [opsRes, recsRes] = await Promise.all([
+    HealthAuth.fetch('/dashboard/integration-operations?limit=50'),
+    HealthAuth.fetch('/dashboard/reconciliations'),
+  ]);
+  const ops = await opsRes.json();
+  const recs = await recsRes.json();
+
+  const intTbody = document.querySelector('#integration-table tbody');
+  intTbody.innerHTML = ops.length === 0
+    ? '<tr><td colspan="5" class="empty">No integration operations</td></tr>'
+    : ops.map(i =>
+        '<tr>' +
+          '<td>' + esc(i.operationType) + '</td>' +
+          '<td><span class="status ' + statusClass(i.status) + '">' + i.status + '</span></td>' +
+          '<td class="mono">' + esc(i.errorMessage || '—') + '</td>' +
+          '<td>' + (i.retryCount || 0) + '</td>' +
+          '<td>' + new Date(i.createdAt).toLocaleString() + '</td>' +
+        '</tr>'
+      ).join('');
+
+  const recTbody = document.querySelector('#reconcile-table tbody');
+  recTbody.innerHTML = recs.length === 0
+    ? '<tr><td colspan="4" class="empty">No reconciliation records</td></tr>'
+    : recs.map(r =>
+        '<tr>' +
+          '<td><span class="status ' + statusClass(r.status) + '">' + r.status + '</span></td>' +
+          '<td>' + esc(r.reason) + '</td>' +
+          '<td class="mono">' + shortId(r.appointmentId) + '</td>' +
+          '<td>' + new Date(r.createdAt).toLocaleString() + '</td>' +
+        '</tr>'
+      ).join('');
+}
+
+async function loadWorkflows() {
+  const [wfsRes, notifsRes] = await Promise.all([
+    HealthAuth.fetch('/dashboard/workflows?limit=50'),
+    HealthAuth.fetch('/dashboard/notifications?limit=50'),
+  ]);
+  const wfs = await wfsRes.json();
+  const notifs = await notifsRes.json();
+
+  const wfTbody = document.querySelector('#workflows-table tbody');
+  wfTbody.innerHTML = wfs.length === 0
+    ? '<tr><td colspan="5" class="empty">No workflows</td></tr>'
+    : wfs.map(w =>
+        '<tr>' +
+          '<td>' + esc(w.workflowName) + '</td>' +
+          '<td><span class="status ' + statusClass(w.status) + '">' + w.status + '</span></td>' +
+          '<td>' + w.attempts + '</td>' +
+          '<td class="mono">' + shortId(w.correlationId) + '</td>' +
+          '<td>' + new Date(w.createdAt).toLocaleString() + '</td>' +
+        '</tr>'
+      ).join('');
+
+  const notTbody = document.querySelector('#notifs-table tbody');
+  notTbody.innerHTML = notifs.length === 0
+    ? '<tr><td colspan="5" class="empty">No notifications</td></tr>'
+    : notifs.map(n =>
+        '<tr>' +
+          '<td>' + esc(n.recipientType) + '</td>' +
+          '<td>' + esc(n.channel) + '</td>' +
+          '<td>' + esc(n.title) + '</td>' +
+          '<td><span class="status ' + statusClass(n.status) + '">' + n.status + '</span></td>' +
+          '<td>' + (n.sentAt ? new Date(n.sentAt).toLocaleString() : '—') + '</td>' +
+        '</tr>'
+      ).join('');
+}
+
+async function loadAnalytics() {
+  const res = await HealthAuth.fetch('/dashboard/analytics');
+  const d = await res.json();
+  const el = document.getElementById('analytics-content');
+
+  function bar(title, obj) {
+    const entries = Object.entries(obj || {});
+    if (!entries.length) {
+      return '<h3 style="font-size:14px;margin:16px 0 8px;color:#cbd5e1;">' + title + '</h3><div class="empty">No data</div>';
+    }
+    const max = Math.max.apply(null, entries.map(e => e[1]).concat([1]));
+    return '<h3 style="font-size:14px;margin:16px 0 8px;color:#cbd5e1;">' + title + '</h3>' +
+      '<div class="bar-chart">' +
+      entries.map(([k, v]) =>
+        '<div class="bar-row">' +
+          '<div>' + k + '</div>' +
+          '<div class="bar-bg"><div class="bar-fill" style="width: ' + ((v/max)*100) + '%;"></div></div>' +
+          '<div class="num">' + v + '</div>' +
+        '</div>'
+      ).join('') + '</div>';
+  }
+
+  el.innerHTML =
+    '<div style="font-size: 13px; color: #94a3b8; margin-bottom: 16px;">' +
+      'Avg capability latency: <strong style="color:#6ee7b7;">' + d.capabilities.avgLatencyMs + ' ms</strong>' +
+    '</div>' +
+    bar('Appointments by status', d.appointments.byStatus) +
+    bar('Capability calls by type', d.capabilities.byCapability) +
+    bar('Integration status', d.integrations.byStatus) +
+    bar('Workflow status', d.workflows.byStatus) +
+    bar('Notifications by recipient', d.notifications.byRecipient);
+}
+
+async function loadEvaluation() {
+  const res = await HealthAuth.fetch('/dashboard/capability-executions?limit=200');
+  const caps = await res.json();
+  const el = document.getElementById('eval-content');
+
+  const total = caps.length;
+  const success = caps.filter(c => c.status === 'SUCCESS').length;
+  const failures = caps.filter(c => c.status === 'FAILED').length;
+  const successRate = total ? Math.round((success / total) * 100) : 0;
+
+  const byCap = {};
+  caps.forEach(c => {
+    byCap[c.capabilityName] = byCap[c.capabilityName] || { total: 0, ok: 0, totalMs: 0 };
+    byCap[c.capabilityName].total++;
+    if (c.status === 'SUCCESS') byCap[c.capabilityName].ok++;
+    byCap[c.capabilityName].totalMs += (c.durationMs || 0);
+  });
+
+  const rows = Object.entries(byCap).map(([name, s]) => {
+    const rate = Math.round((s.ok / s.total) * 100);
+    const avg = Math.round(s.totalMs / s.total);
+    const verdict = rate >= 90 ? 'PASS' : rate >= 70 ? 'WARN' : 'FAIL';
+    const cls = verdict === 'PASS' ? 'status-ok' : verdict === 'WARN' ? 'status-warn' : 'status-err';
+    return '<tr>' +
+      '<td>' + esc(name) + '</td>' +
+      '<td>' + s.total + '</td>' +
+      '<td>' + s.ok + ' / ' + s.total + '</td>' +
+      '<td>' + avg + ' ms</td>' +
+      '<td><span class="status ' + cls + '">' + verdict + ' (' + rate + '%)</span></td>' +
+    '</tr>';
+  }).join('');
+
+  el.innerHTML =
+    '<div class="cards" style="margin-bottom: 20px;">' +
+      '<div class="card"><div class="label">Total Calls</div><div class="value">' + total + '</div></div>' +
+      '<div class="card"><div class="label">Success Rate</div><div class="value" style="color:' +
+        (successRate >= 90 ? '#6ee7b7' : successRate >= 70 ? '#fcd34d' : '#fca5a5') +
+      ';">' + successRate + '%</div></div>' +
+      '<div class="card"><div class="label">Failures</div><div class="value">' + failures + '</div></div>' +
+    '</div>' +
+    '<table>' +
+      '<thead><tr><th>Capability</th><th>Total</th><th>Success</th><th>Avg Latency</th><th>Verdict</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>';
+}
+
+async function loadHealth() {
+  const [ovRes, recsRes, intsRes] = await Promise.all([
+    HealthAuth.fetch('/dashboard/overview'),
+    HealthAuth.fetch('/dashboard/reconciliations'),
+    HealthAuth.fetch('/dashboard/integration-operations?limit=100'),
+  ]);
+  const overview = await ovRes.json();
+  const recs = await recsRes.json();
+  const ints = await intsRes.json();
+
+  const openRecs = recs.filter(r => r.status === 'OPEN').length;
+  const failedInts = ints.filter(i => i.status === 'FAILED' || i.status === 'UNKNOWN').length;
+
+  function healthCard(title, value, level) {
+    return '<div class="health-card"><div class="title">' + title + '</div><div class="value ' + level + '">' + value + '</div></div>';
+  }
+
+  document.getElementById('health-grid').innerHTML =
+    healthCard('Hospitals', overview.hospitals, 'ok') +
+    healthCard('Doctors', overview.doctors, 'ok') +
+    healthCard('Patients', overview.patients, 'ok') +
+    healthCard('Appointments', overview.appointments, 'ok') +
+    healthCard('Open Reconciliations', openRecs, openRecs === 0 ? 'ok' : openRecs < 5 ? 'warn' : 'err') +
+    healthCard('Failed/Unknown Integrations', failedInts, failedInts === 0 ? 'ok' : failedInts < 5 ? 'warn' : 'err') +
+    healthCard('Workflows', overview.workflows, 'ok') +
+    healthCard('Notifications Sent', overview.notifications, 'ok') +
+    healthCard('Audit Events', overview.auditEvents, 'ok');
+}
+
+async function loadAudit() {
+  const res = await HealthAuth.fetch('/dashboard/audit-events?limit=100');
+  const events = await res.json();
+  const tbody = document.querySelector('#audit-table tbody');
+  if (!events.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">No audit events</td></tr>';
+    return;
+  }
+  tbody.innerHTML = events.map(e =>
+    '<tr>' +
+      '<td>' + new Date(e.createdAt).toLocaleString() + '</td>' +
+      '<td>' + esc(e.action) + '</td>' +
+      '<td>' + esc(e.actorType) + '</td>' +
+      '<td>' + esc(e.entityType || '—') + '</td>' +
+      '<td class="mono">' + shortId(e.correlationId) + '</td>' +
+    '</tr>'
+  ).join('');
+}
+
+(async function init() {
+  if (!HealthAuth.isLoggedIn()) {
+    window.location.href = 'login.html';
+    return;
+  }
+  loadOverview();
+  setInterval(loadOverview, 15000);
+})();
+</script>
+</body>
+</html>
+

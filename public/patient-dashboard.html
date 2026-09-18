@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Patient Dashboard</title>
+<script src="auth.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+  header { background: #0ea5e9; color: white; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); gap: 20px; }
+  header h1 { margin: 0; font-size: 18px; font-weight: 600; white-space: nowrap; }
+  .patient-picker { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 8px; }
+  .patient-picker label { font-size: 12px; opacity: 0.9; }
+  .patient-picker select { padding: 6px 10px; border-radius: 6px; border: none; font-size: 13px; font-weight: 500; background: white; color: #0f172a; min-width: 220px; cursor: pointer; }
+  .tabs { display: flex; gap: 4px; background: #0284c7; padding: 8px 24px; }
+  .tab { padding: 8px 16px; background: transparent; border: none; color: rgba(255,255,255,0.8); font-size: 14px; font-weight: 500; cursor: pointer; border-radius: 6px; }
+  .tab:hover { background: rgba(255,255,255,0.1); color: white; }
+  .tab.active { background: white; color: #0284c7; }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: white; border-radius: 10px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  .card .label { font-size: 12px; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .card .value { font-size: 26px; font-weight: 700; }
+  section { background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  section h2 { margin-top: 0; font-size: 15px; font-weight: 600; color: #334155; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+  th { background: #f8fafc; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .status-ok { background: #d1fae5; color: #065f46; }
+  .status-info { background: #dbeafe; color: #1e40af; }
+  .status-warn { background: #fef3c7; color: #78350f; }
+  .status-err { background: #fee2e2; color: #991b1b; }
+  .mono { font-family: "SF Mono", Monaco, monospace; font-size: 11px; color: #64748b; }
+  .empty { text-align: center; color: #94a3b8; padding: 24px; }
+  button.action { background: #0ea5e9; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  button.action:hover { background: #0284c7; }
+  button.action:disabled { background: #cbd5e1; cursor: not-allowed; }
+  .profile-row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+  .profile-row .label { color: #64748b; font-weight: 500; }
+  .profile-row .value { color: #0f172a; font-weight: 500; }
+  .questionnaire-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .questionnaire-box h3 { margin: 0 0 12px; font-size: 15px; }
+  .q { margin-bottom: 14px; padding: 10px; background: #f8fafc; border-radius: 6px; }
+  .q .question { font-weight: 500; margin-bottom: 8px; color: #1e293b; }
+  .q .answer { color: #0ea5e9; font-weight: 600; }
+  .q .pending { color: #94a3b8; font-style: italic; }
+  .q-input { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-family: inherit; background: white; }
+  .q-input:focus { outline: 2px solid #0ea5e9; border-color: transparent; }
+  .chat-cta { display: flex; align-items: center; gap: 16px; padding: 20px; background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; border-radius: 10px; margin-bottom: 24px; }
+  .chat-cta .text { flex: 1; }
+  .chat-cta h2 { margin: 0 0 4px; font-size: 17px; color: white; }
+  .chat-cta p { margin: 0; font-size: 13px; opacity: 0.9; }
+  .chat-cta button { background: white; color: #0284c7; border: none; padding: 12px 22px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+  .context-banner { background: #dbeafe; color: #1e40af; padding: 8px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 16px; }
+  .context-banner strong { color: #1e3a8a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏥 Patient Dashboard</h1>
+  <div class="patient-picker">
+    <label>Current Patient:</label>
+    <select id="patient-select"></select>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-tab="home">🏠 Home</button>
+  <button class="tab" data-tab="appointments">📅 My Appointments</button>
+  <button class="tab" data-tab="questionnaires">📋 Questionnaires</button>
+  <button class="tab" data-tab="profile">👤 Profile</button>
+</div>
+
+<main>
+  <div class="context-banner" id="context-banner">
+    Viewing data for: <strong id="context-name">…</strong>
+  </div>
+
+  <div class="view active" id="view-home">
+    <div class="chat-cta">
+      <div class="text">
+        <h2>Talk to the AI assistant</h2>
+        <p>Describe what you need — book, reschedule, cancel, or ask about appointments.</p>
+      </div>
+      <button onclick="openChat()">Open Chat →</button>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="label">Upcoming</div><div class="value" id="home-upcoming">—</div></div>
+      <div class="card"><div class="label">Past Visits</div><div class="value" id="home-past">—</div></div>
+      <div class="card"><div class="label">Questionnaires</div><div class="value" id="home-quest">—</div></div>
+    </div>
+
+    <section>
+      <h2>📅 Next Appointment</h2>
+      <div id="home-next">Loading…</div>
+    </section>
+  </div>
+
+  <div class="view" id="view-appointments">
+    <section>
+      <h2>📅 All My Appointments</h2>
+      <table id="appt-table">
+        <thead><tr><th>When</th><th>Status</th><th>Type</th><th>External ID</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="view" id="view-questionnaires">
+    <section>
+      <h2>📋 My Questionnaires</h2>
+      <div id="questionnaires-list">Loading…</div>
+    </section>
+  </div>
+
+  <div class="view" id="view-profile">
+    <section>
+      <h2>👤 My Profile</h2>
+      <div id="profile-content">Loading…</div>
+    </section>
+  </div>
+</main>
+
+<script>
+let PATIENT_ID = null;
+let PATIENTS = [];
+
+async function loadPatients() {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hospitalId = urlParams.get('hospitalId');
+
+    const url = hospitalId
+      ? '/dashboard/hospitals/' + hospitalId + '/patients'
+      : '/dashboard/all-patients';
+
+    const res = await HealthAuth.fetch(url);
+    PATIENTS = await res.json();
+
+    const sel = document.getElementById('patient-select');
+    sel.innerHTML = PATIENTS.map(p =>
+      '<option value="' + p.id + '">' + p.name + ' · ' + (p.email || '') + '</option>'
+    ).join('');
+
+    const urlPatientId = urlParams.get('patientId');
+    if (urlPatientId && PATIENTS.find(p => p.id === urlPatientId)) {
+      PATIENT_ID = urlPatientId;
+      sel.value = urlPatientId;
+    } else {
+      PATIENT_ID = PATIENTS[0] ? PATIENTS[0].id : null;
+    }
+
+    sel.addEventListener('change', (e) => {
+      PATIENT_ID = e.target.value;
+      updateContextBanner();
+      reloadAll();
+    });
+
+    updateContextBanner();
+
+    if (PATIENTS.length === 0) {
+      document.getElementById('context-name').textContent = 'No patients at this hospital';
+      document.getElementById('home-next').innerHTML =
+        '<div class="empty">No patients registered at this hospital yet.</div>';
+    }
+  } catch (e) {
+    document.getElementById('context-name').textContent = 'Error loading patients';
+    console.error(e);
+  }
+}
+
+function updateContextBanner() {
+  const p = PATIENTS.find(x => x.id === PATIENT_ID);
+  document.getElementById('context-name').textContent = p ? p.name : '—';
+}
+
+function currentTab() {
+  const active = document.querySelector('.tab.active');
+  return active ? active.dataset.tab : 'home';
+}
+
+function reloadAll() {
+  const t = currentTab();
+  if (t === 'home') loadHome();
+  if (t === 'appointments') loadAppointments();
+  if (t === 'questionnaires') loadQuestionnaires();
+  if (t === 'profile') loadProfile();
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-' + tab.dataset.tab).classList.add('active');
+    reloadAll();
+  });
+});
+
+function statusClass(s) {
+  s = String(s || '').toUpperCase();
+  if (['CONFIRMED','COMPLETED','SENT','SUCCESS'].includes(s)) return 'status-ok';
+  if (['PENDING','SYNC_PENDING','REQUESTED','RUNNING'].includes(s)) return 'status-info';
+  if (['CANCELLED','FAILED','RECONCILIATION_REQUIRED'].includes(s)) return 'status-err';
+  return 'status-warn';
+}
+function shortId(id) { return id ? id.slice(0, 8) + '…' : '—'; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+async function loadHome() {
+  if (!PATIENT_ID) return;
+  try {
+    const [profileRes, apptsRes, qsRes] = await Promise.all([
+      HealthAuth.fetch('/dashboard/patients/' + PATIENT_ID + '/profile'),
+      HealthAuth.fetch('/dashboard/patients/' + PATIENT_ID + '/appointments'),
+      HealthAuth.fetch('/dashboard/patients/' + PATIENT_ID + '/questionnaires'),
+    ]);
+    const appts = await apptsRes.json();
+    const qs = await qsRes.json();
+
+    const now = new Date();
+    const upcoming = appts.filter(a => new Date(a.startDatetime) >= now && a.status !== 'CANCELLED');
+    const past = appts.filter(a => new Date(a.startDatetime) < now);
+
+    document.getElementById('home-upcoming').textContent = upcoming.length;
+    document.getElementById('home-past').textContent = past.length;
+    document.getElementById('home-quest').textContent = qs.filter(q => q.response && q.response.status === 'PENDING').length;
+
+    const next = upcoming.sort((a, b) => new Date(a.startDatetime) - new Date(b.startDatetime))[0];
+    const nextEl = document.getElementById('home-next');
+    if (!next) {
+      nextEl.innerHTML = '<div class="empty">No upcoming appointments. Ask the AI assistant to book one.</div>';
+    } else {
+      nextEl.innerHTML = '<div style="display:flex; justify-content: space-between; align-items: center;">' +
+        '<div>' +
+          '<div style="font-size: 15px; font-weight: 600;">' + new Date(next.startDatetime).toLocaleString() + '</div>' +
+          '<div style="font-size: 12px; color:#64748b; margin-top:4px;">Type: ' + esc(next.appointmentType) + '</div>' +
+        '</div>' +
+        '<span class="status ' + statusClass(next.status) + '">' + next.status + '</span>' +
+      '</div>';
+    }
+  } catch (e) {
+    document.getElementById('home-next').innerHTML = '<div class="empty">Error: ' + e.message + '</div>';
+  }
+}
+
+async function loadAppointments() {
+  if (!PATIENT_ID) return;
+  const res = await HealthAuth.fetch('/dashboard/patients/' + PATIENT_ID + '/appointments');
+  const appts = await res.json();
+  const tbody = document.querySelector('#appt-table tbody');
+  if (!appts.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">No appointments yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = appts.map(a =>
+    '<tr>' +
+      '<td>' + new Date(a.startDatetime).toLocaleString() + '</td>' +
+      '<td><span class="status ' + statusClass(a.status) + '">' + a.status + '</span></td>' +
+      '<td>' + esc(a.appointmentType) + '</td>' +
+      '<td class="mono">' + shortId(a.externalAppointmentId) + '</td>' +
+    '</tr>'
+  ).join('');
+}
+
+async function loadQuestionnaires() {
+  if (!PATIENT_ID) return;
+  const res = await HealthAuth.fetch('/dashboard/patients/' + PATIENT_ID + '/questionnaires');
+  const qs = await res.json();
+  const el = document.getElementById('questionnaires-list');
+  if (!qs.length) {
+    el.innerHTML = '<div class="empty">No questionnaires yet</div>';
+    return;
+  }
+
+  el.innerHTML = qs.map(q => {
+    const questions = q.questionnaire?.questions || [];
+    const answers = q.response?.responses || {};
+    const isComplete = q.response?.status === 'COMPLETED';
+
+    const rows = questions.map(qu => {
+      const existing = answers[qu.id];
+      const hasAnswer = existing !== undefined && existing !== null && existing !== '';
+
+      let inputHtml = '';
+      if (isComplete && hasAnswer) {
+        inputHtml = '<div class="answer">' + esc(existing) + '</div>';
+      } else if (qu.type === 'yes_no') {
+        inputHtml = '<select data-qid="' + qu.id + '" class="q-input"><option value="">Select…</option><option value="Yes">Yes</option><option value="No">No</option></select>';
+      } else if (qu.type === 'choice') {
+        const opts = (qu.options || []).map(o => '<option value="' + esc(o) + '">' + esc(o) + '</option>').join('');
+        inputHtml = '<select data-qid="' + qu.id + '" class="q-input"><option value="">Select…</option>' + opts + '</select>';
+      } else if (qu.type === 'numeric') {
+        inputHtml = '<input type="number" data-qid="' + qu.id + '" class="q-input" min="0" max="10" placeholder="0-10" />';
+      } else {
+        inputHtml = '<input type="text" data-qid="' + qu.id + '" class="q-input" placeholder="Your answer" />';
+      }
+
+      return '<div class="q">' +
+        '<div class="question">' + esc(qu.question) + '</div>' +
+        inputHtml +
+        '</div>';
+    }).join('');
+
+    const submitBtn = isComplete
+      ? '<div style="font-size:12px;color:#065f46;font-weight:600;">✓ Submitted</div>'
+      : '<button class="action" onclick="submitQuestionnaire(\'' + q.appointment?.id + '\', this)">Submit Answers</button>';
+
+    return '<div class="questionnaire-box">' +
+      '<h3>' + esc(q.questionnaire?.name || 'Questionnaire') + '</h3>' +
+      '<div style="margin-bottom:12px;">' +
+        '<span class="status ' + statusClass(q.response?.status) + '">' + q.response?.status + '</span>' +
+        '<span style="font-size:12px;color:#64748b;margin-left:8px;">' +
+          'Appointment: ' + (q.appointment ? new Date(q.appointment.startDatetime).toLocaleString() : '—') +
+        '</span>' +
+      '</div>' +
+      rows +
+      '<div style="margin-top:16px;">' + submitBtn + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+window.submitQuestionnaire = async (appointmentId, btnEl) => {
+  const box = btnEl.closest('.questionnaire-box');
+  const inputs = box.querySelectorAll('.q-input');
+  const responses = {};
+  let missing = false;
+
+  inputs.forEach(inp => {
+    const qid = inp.dataset.qid;
+    const val = inp.value.trim();
+    if (!val) { missing = true; return; }
+    responses[qid] = isNaN(val) ? val : (val.includes('.') ? parseFloat(val) : parseInt(val, 10));
+  });
+
+  if (missing) {
+    alert('Please answer all questions before submitting.');
+    return;
+  }
+  if (Object.keys(responses).length === 0) {
+    alert('Nothing to submit.');
+    return;
+  }
+
+  btnEl.disabled = true;
+  btnEl.textContent = 'Submitting…';
+
+  try {
+    const res = await HealthAuth.fetch(
+      '/dashboard/patients/' + PATIENT_ID + '/questionnaires/' + appointmentId + '/submit',
+      {
+        method: 'POST',
+        body: JSON.stringify({ responses }),
+      },
+    );
+    const data = await res.json();
+    if (data.error) {
+      alert('Error: ' + data.error);
+      btnEl.disabled = false;
+      btnEl.textContent = 'Submit Answers';
+      return;
+    }
+    await loadQuestionnaires();
+  } catch (e) {
+    alert('Failed: ' + e.message);
+    btnEl.disabled = false;
+    btnEl.textContent = 'Submit Answers';
+  }
+};
+
+async function loadProfile() {
+  if (!PATIENT_ID) return;
+  const res = await HealthAuth.fetch('/dashboard/patients/' + PATIENT_ID + '/profile');
+  const p = await res.json();
+  const el = document.getElementById('profile-content');
+  if (!p) { el.innerHTML = '<div class="empty">No profile found</div>'; return; }
+  const rows = [
+    ['Name', p.name],
+    ['Email', p.email],
+    ['Phone', p.phone],
+    ['Date of Birth', p.dateOfBirth ? new Date(p.dateOfBirth).toLocaleDateString() : '—'],
+    ['Communication preference', p.communicationPreference],
+    ['External patient ID', p.externalPatientId || '—'],
+    ['Registered', new Date(p.createdAt).toLocaleString()],
+  ];
+  el.innerHTML = rows.map(([k, v]) =>
+    '<div class="profile-row"><div class="label">' + esc(k) + '</div><div class="value">' + esc(v || '—') + '</div></div>'
+  ).join('');
+}
+
+function openChat() {
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.location.hash = 'chat';
+      window.parent.postMessage({ type: 'switch-tab', tab: 'chat' }, '*');
+      return;
+    }
+  } catch (e) { /* ignore */ }
+  window.open('patient-chat.html', '_blank', 'width=760,height=800');
+}
+
+(async function init() {
+  // Require login
+  if (!HealthAuth.isLoggedIn()) {
+    window.location.href = 'login.html';
+    return;
+  }
+  await loadPatients();
+  loadHome();
+})();
+</script>
+</body>
+</html>
+
