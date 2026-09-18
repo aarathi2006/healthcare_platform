@@ -11,8 +11,6 @@ import {
   Doctor,
   DoctorStatus,
 } from '../modules/doctors/entities/doctor.entity';
-import * as bcrypt from 'bcrypt';
-import { PlatformUser, UserRole } from '../modules/platform-users/entities/platform-user.entity';
 import { Calendar } from '../modules/calendars/entities/calendar.entity';
 import { WorkingHours } from '../modules/scheduling/entities/working-hours.entity';
 import { BlockedSlot } from '../modules/scheduling/entities/blocked-slot.entity';
@@ -30,11 +28,15 @@ import { Questionnaire } from '../modules/questionnaires/entities/questionnaire.
 import { QuestionnaireResponse } from '../modules/questionnaires/entities/questionnaire-response.entity';
 import { Notification } from '../modules/notifications/entities/notification.entity';
 import { WorkflowExecution } from '../modules/workflows/entities/workflow-execution.entity';
-
+import { PlatformUser, UserRole } from '../modules/platform-users/entities/platform-user.entity';
+import * as bcrypt from 'bcrypt';
 
 dotenv.config();
 
 async function seed() {
+  const isProd = process.env.NODE_ENV === 'production';
+  const useSSL = process.env.DB_HOST?.includes('neon.tech');
+
   const ds = new DataSource({
     type: 'postgres',
     host: process.env.DB_HOST,
@@ -52,10 +54,8 @@ async function seed() {
       BlockedSlot,
       Appointment,
       AppointmentHistory,
-PlatformUser,
       Patient,
       ExternalIdMapping,
-
       IntegrationOperation,
       ReconciliationRecord,
       AuditEvent,
@@ -68,7 +68,12 @@ PlatformUser,
       WorkflowExecution,
       PlatformUser,
     ],
-    synchronize: false,
+    synchronize: true,
+    ssl: useSSL ? { rejectUnauthorized: false } : false,
+    extra: {
+      family: 4,             // Force IPv4
+      connectTimeoutMS: 30000,
+    },
   });
 
   await ds.initialize();
@@ -82,6 +87,7 @@ PlatformUser,
   const whRepo = ds.getRepository(WorkingHours);
   const patientRepo = ds.getRepository(Patient);
   const questionnaireRepo = ds.getRepository(Questionnaire);
+  const userRepo = ds.getRepository(PlatformUser);
 
   console.log('🌱 Seeding database...');
 
@@ -159,6 +165,7 @@ PlatformUser,
       email: 'rahul@example.com',
       phone: '+91-98765-43210',
       dateOfBirth: new Date('1990-05-15'),
+      externalPatientId: null,
     }),
   );
   console.log(`👤 Patient: ${patient.id} (${patient.name})`);
@@ -206,15 +213,6 @@ PlatformUser,
   );
   console.log(`📋 Questionnaire: ${questionnaire.id}`);
 
-  console.log('');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('✅ Seed complete. Save these IDs for testing:');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`HOSPITAL_ID=${hospital.id}`);
-  console.log(`DOCTOR_ID=${doctor.id}`);
-  console.log(`PATIENT_ID=${patient.id}`);
-  console.log(`QUESTIONNAIRE_ID=${questionnaire.id}`);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   // ═══════════ Hospital B — for tenant isolation demo ═══════════
 
   const hospitalB = await hospitalRepo.save(
@@ -233,7 +231,10 @@ PlatformUser,
   );
 
   const specB = await specRepo.save(
-    specRepo.create({ hospitalId: hospitalB.id, name: 'Cardiology' }),
+    specRepo.create({
+      hospitalId: hospitalB.id,
+      name: 'Cardiology',
+    }),
   );
 
   const doctorB = await doctorRepo.save(
@@ -279,6 +280,7 @@ PlatformUser,
       email: 'priya@example.com',
       phone: '+91-99999-12345',
       dateOfBirth: new Date('1985-08-20'),
+      externalPatientId: null,
     }),
   );
   console.log(`👤 Patient B: ${patientB.id} (${patientB.name})`);
@@ -313,60 +315,57 @@ PlatformUser,
   );
   console.log(`📋 Questionnaire B: ${questionnaireB.id}`);
 
-  console.log('');
-  console.log('══════════════════════════════════════════════════════════');
-  console.log('HOSPITAL B (for tenant isolation demo)');
-  console.log('══════════════════════════════════════════════════════════');
-  console.log(`HOSPITAL_B_ID=${hospitalB.id}`);
-  console.log(`DOCTOR_B_ID=${doctorB.id}`);
-  console.log(`PATIENT_B_ID=${patientB.id}`);
-  console.log('══════════════════════════════════════════════════════════');
   // ═══════════ Seed Auth Users ═══════════
-  const userRepo = ds.getRepository(PlatformUser);
+
   const passwordHash = await bcrypt.hash('password123', 10);
 
-  await userRepo.save(
+  await userRepo.save([
     userRepo.create({
       email: 'patient@example.com',
       passwordHash,
       role: UserRole.PATIENT,
       isActive: true,
     }),
-  );
-
-  await userRepo.save(
     userRepo.create({
       email: 'doctor@example.com',
       passwordHash,
       role: UserRole.DOCTOR,
       isActive: true,
     }),
-  );
-
-  await userRepo.save(
     userRepo.create({
       email: 'hospital.admin@example.com',
       passwordHash,
       role: UserRole.HOSPITAL_ADMIN,
       isActive: true,
     }),
-  );
-
-  await userRepo.save(
     userRepo.create({
       email: 'platform.admin@example.com',
       passwordHash,
       role: UserRole.PLATFORM_ADMIN,
       isActive: true,
     }),
-  );
+  ]);
 
+  console.log('');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('✅ Seed complete. Save these IDs for testing:');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`HOSPITAL_ID=${hospital.id}`);
+  console.log(`DOCTOR_ID=${doctor.id}`);
+  console.log(`PATIENT_ID=${patient.id}`);
+  console.log(`QUESTIONNAIRE_ID=${questionnaire.id}`);
+  console.log('');
+  console.log(`HOSPITAL_B_ID=${hospitalB.id}`);
+  console.log(`DOCTOR_B_ID=${doctorB.id}`);
+  console.log(`PATIENT_B_ID=${patientB.id}`);
+  console.log(`QUESTIONNAIRE_B_ID=${questionnaireB.id}`);
   console.log('');
   console.log('🔐 Auth users created (password: password123):');
   console.log('  patient@example.com');
   console.log('  doctor@example.com');
   console.log('  hospital.admin@example.com');
   console.log('  platform.admin@example.com');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
   await ds.destroy();
 }

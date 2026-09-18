@@ -24,17 +24,24 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: parseInt(config.get<string>('DB_PORT') || '5432', 10),
-        username: config.get<string>('DB_USER'),
-        password: config.get<string>('DB_PASSWORD'),
-        database: config.get<string>('DB_NAME'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true,
-        logging: ['error', 'warn'],
-      }),
+      useFactory: (config: ConfigService) => {
+        const isProduction = config.get<string>('NODE_ENV') === 'production';
+        return {
+          type: 'postgres',
+          host: config.get<string>('DB_HOST'),
+          port: parseInt(config.get<string>('DB_PORT') || '5432', 10),
+          username: config.get<string>('DB_USER'),
+          password: config.get<string>('DB_PASSWORD'),
+          database: config.get<string>('DB_NAME'),
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: true,
+          logging: ['error', 'warn'],
+          ssl: isProduction ? { rejectUnauthorized: false } : false,
+          extra: isProduction
+            ? { family: 4, connectTimeoutMS: 30000 }
+            : {},
+        };
+      },
     }),
     SchedulingModule,
     IntegrationModule,
