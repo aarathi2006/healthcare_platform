@@ -15,17 +15,26 @@ import { EhrAppointmentsModule } from './modules/appointments/appointments.modul
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: parseInt(config.get<string>('DB_PORT') || '5432', 10),
-        username: config.get<string>('DB_USER'),
-        password: config.get<string>('DB_PASSWORD'),
-        database: config.get<string>('DB_NAME'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true,
-        logging: ['error', 'warn'],
-      }),
+      useFactory: (config: ConfigService) => {
+        const dbHost = config.get<string>('DB_HOST') || 'localhost';
+        const useSSL =
+          dbHost.includes('neon.tech') ||
+          dbHost.includes('render.com') ||
+          config.get<string>('NODE_ENV') === 'production';
+
+        return {
+          type: 'postgres',
+          host: dbHost,
+          port: parseInt(config.get<string>('DB_PORT') || '5432', 10),
+          username: config.get<string>('DB_USER'),
+          password: config.get<string>('DB_PASSWORD'),
+          database: config.get<string>('DB_NAME'),
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: false,  // ← IMPORTANT: false for Mock EHR
+          logging: ['error', 'warn'],
+          ssl: useSSL ? { rejectUnauthorized: false } : false,
+        };
+      },
     }),
     EhrPatientsModule,
     EhrProvidersModule,
