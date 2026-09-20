@@ -1,7 +1,9 @@
 (function () {
-  const API = window.location.origin === 'file://'
+  const RENDER_BACKEND = 'https://healthcare-platform-9o4h.onrender.com';
+
+  const API = window.location.origin === 'file://' || window.location.origin.startsWith('file://')
     ? 'http://localhost:3000'
-    : window.location.origin;
+    : RENDER_BACKEND;
 
   window.HealthAuth = {
     API,

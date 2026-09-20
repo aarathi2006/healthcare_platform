@@ -71,7 +71,8 @@
   </div>
 
 <script>
-const API = window.location.origin === 'file://' ? 'http://localhost:3000' : window.location.origin;
+const RENDER_BACKEND = 'https://healthcare-platform-9o4h.onrender.com';
+const API = window.location.origin.startsWith('file://') ? 'http://localhost:3000' : RENDER_BACKEND;
 
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
