@@ -1,6 +1,6 @@
 (function () {
   const API = window.location.origin === 'file://'
-    ? 'https://healthcare-platform-api.onrender.com'
+    ? 'http://localhost:3000'
     : window.location.origin;
 
   window.HealthAuth = {
